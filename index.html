@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MLM Plan Visualizer — F5 Systems</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0A0A0F;
+    --surface: #13131A;
+    --surface2: #1C1C26;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.14);
+    --accent: #7C5CFC;
+    --accent2: #4ECDC4;
+    --accent3: #FF6B6B;
+    --gold: #F5B731;
+    --text: #F0EFF8;
+    --muted: #8887A2;
+    --faint: #3D3C55;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ─── NOISE TEXTURE ─── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.035'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.6;
+  }
+
+  /* ─── NAV ─── */
+  nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 2rem;
+    height: 60px;
+    background: rgba(10,10,15,0.85);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .nav-logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 18px;
+    color: var(--text);
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .nav-logo span {
+    color: var(--accent);
+  }
+
+  .nav-badge {
+    font-size: 10px;
+    font-weight: 600;
+    background: var(--accent);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 20px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  .nav-links {
+    display: flex;
+    gap: 6px;
+  }
+
+  .nav-links a {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 13px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    transition: all 0.2s;
+  }
+
+  .nav-links a:hover { color: var(--text); background: var(--surface2); }
+
+  /* ─── HERO ─── */
+  .hero {
+    position: relative;
+    text-align: center;
+    padding: 5rem 2rem 3rem;
+    overflow: hidden;
+  }
+
+  .hero-glow {
+    position: absolute;
+    top: -100px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 700px;
+    height: 400px;
+    background: radial-gradient(ellipse, rgba(124,92,252,0.2) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .hero-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--accent2);
+    background: rgba(78,205,196,0.1);
+    border: 1px solid rgba(78,205,196,0.2);
+    padding: 5px 14px;
+    border-radius: 20px;
+    margin-bottom: 1.5rem;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+  }
+
+  .hero h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(2.4rem, 6vw, 4rem);
+    font-weight: 800;
+    line-height: 1.1;
+    margin-bottom: 1.2rem;
+    letter-spacing: -1px;
+  }
+
+  .hero h1 em {
+    font-style: normal;
+    color: var(--accent);
+  }
+
+  .hero p {
+    font-size: 1.05rem;
+    color: var(--muted);
+    max-width: 520px;
+    margin: 0 auto 2rem;
+    font-weight: 300;
+  }
+
+  /* ─── PLAN TABS ─── */
+  .plan-tabs {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 2rem;
+  }
+
+  .tab-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 12px 24px;
+    border-radius: 14px;
+    border: 1px solid var(--border2);
+    background: var(--surface);
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'DM Sans', sans-serif;
+    min-width: 130px;
+  }
+
+  .tab-btn:hover { border-color: var(--faint); color: var(--text); background: var(--surface2); }
+
+  .tab-btn.active {
+    background: rgba(124,92,252,0.15);
+    border-color: var(--accent);
+    color: var(--text);
+  }
+
+  .tab-icon { font-size: 20px; }
+  .tab-name { font-weight: 600; font-size: 14px; }
+  .tab-sub { font-size: 11px; color: var(--muted); }
+  .tab-btn.active .tab-sub { color: rgba(124,92,252,0.8); }
+
+  /* ─── MAIN LAYOUT ─── */
+  .main {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 1.5rem 4rem;
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 1.5rem;
+    align-items: start;
+  }
+
+  @media (max-width: 800px) {
+    .main { grid-template-columns: 1fr; }
+  }
+
+  /* ─── PANEL ─── */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 1.5rem;
+  }
+
+  .panel-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    margin-bottom: 1.2rem;
+  }
+
+  /* ─── SLIDERS ─── */
+  .control-group {
+    margin-bottom: 1.4rem;
+  }
+
+  .control-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    margin-bottom: 8px;
+    color: var(--muted);
+  }
+
+  .control-label strong { color: var(--text); font-weight: 500; }
+
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 4px;
+    background: var(--faint);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+  }
+
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid var(--bg);
+    box-shadow: 0 0 0 3px rgba(124,92,252,0.3);
+    transition: box-shadow 0.2s;
+  }
+
+  input[type=range]::-webkit-slider-thumb:hover {
+    box-shadow: 0 0 0 5px rgba(124,92,252,0.4);
+  }
+
+  /* ─── PLAN DESCRIPTION ─── */
+  .plan-info {
+    background: var(--surface2);
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-bottom: 1.4rem;
+    font-size: 13px;
+    color: var(--muted);
+    border-left: 3px solid var(--accent);
+    line-height: 1.5;
+  }
+
+  /* ─── STATS ─── */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 1.5rem;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px 16px;
+    transition: border-color 0.2s;
+  }
+
+  .stat-card:hover { border-color: var(--border2); }
+  .stat-card.highlight { border-color: rgba(124,92,252,0.4); background: rgba(124,92,252,0.08); }
+
+  .stat-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--muted);
+    margin-bottom: 6px;
+    font-weight: 500;
+  }
+
+  .stat-value {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .stat-value.money { color: #4ECDC4; }
+
+  /* ─── SVG TREE ─── */
+  .tree-wrapper {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 1.5rem 1rem 1rem;
+    overflow: hidden;
+  }
+
+  .tree-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+    padding: 0 0.5rem;
+  }
+
+  .tree-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .tree-meta {
+    font-size: 12px;
+    color: var(--muted);
+    background: var(--surface2);
+    padding: 4px 12px;
+    border-radius: 20px;
+  }
+
+  #tree-svg {
+    display: block;
+    width: 100%;
+    overflow: visible;
+  }
+
+  /* ─── LEGEND ─── */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 1rem 1.5rem;
+    border-top: 1px solid var(--border);
+    margin-top: 0.5rem;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* ─── COMMISSION TABLE ─── */
+  .commission-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-top: 0.5rem;
+  }
+
+  .commission-table th {
+    text-align: left;
+    padding: 8px 10px;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .commission-table td {
+    padding: 9px 10px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+  }
+
+  .commission-table tr:last-child td { border-bottom: none; }
+  .commission-table tr:hover td { background: var(--surface2); }
+
+  .comm-bar-wrap {
+    background: var(--surface2);
+    border-radius: 3px;
+    height: 6px;
+    width: 100%;
+    overflow: hidden;
+  }
+
+  .comm-bar {
+    height: 100%;
+    border-radius: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    transition: width 0.4s ease;
+  }
+
+  /* ─── CTA ─── */
+  .cta-section {
+    text-align: center;
+    padding: 3rem 2rem 4rem;
+    max-width: 600px;
+    margin: 0 auto;
+  }
+
+  .cta-section h2 {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.8rem;
+    font-weight: 800;
+    margin-bottom: 0.8rem;
+  }
+
+  .cta-section p {
+    color: var(--muted);
+    margin-bottom: 1.5rem;
+    font-weight: 300;
+  }
+
+  .cta-btn {
+    display: inline-block;
+    background: var(--accent);
+    color: white;
+    padding: 13px 32px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 15px;
+    text-decoration: none;
+    transition: all 0.2s;
+    letter-spacing: 0.2px;
+  }
+
+  .cta-btn:hover { background: #6a4ce0; transform: translateY(-1px); }
+
+  /* ─── ANIMATIONS ─── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .fade-up { animation: fadeUp 0.5s ease both; }
+  .fade-up:nth-child(2) { animation-delay: 0.1s; }
+  .fade-up:nth-child(3) { animation-delay: 0.2s; }
+
+  /* pulse animation for root node */
+  @keyframes pulse {
+    0%, 100% { r: 20; }
+    50% { r: 23; }
+  }
+
+  .pulse-circle { animation: pulse 2s ease-in-out infinite; }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="#" class="nav-logo">
+    F5<span>Systems</span>
+    <div class="nav-badge">Tool</div>
+  </a>
+  <div class="nav-links">
+    <a href="#visualizer">Visualizer</a>
+    <a href="#commission">Commission</a>
+    <a href="https://f5sys.com" target="_blank">Visit F5 Systems ↗</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-glow"></div>
+  <div class="hero-tag">
+    <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><circle cx="5" cy="5" r="4" fill="#4ECDC4"/></svg>
+    Interactive tool
+  </div>
+  <h1 class="fade-up">Visualize your<br><em>MLM Network</em> live</h1>
+  <p class="fade-up">See how your Binary, Matrix, or Level plan grows — adjust depth, product value, and commission to calculate your earning potential instantly.</p>
+
+  <!-- PLAN TABS -->
+  <div class="plan-tabs fade-up">
+    <button class="tab-btn active" onclick="setPlan('binary')">
+      <span class="tab-icon">⚖️</span>
+      <span class="tab-name">Binary</span>
+      <span class="tab-sub">2 legs per member</span>
+    </button>
+    <button class="tab-btn" onclick="setPlan('matrix')">
+      <span class="tab-icon">🔲</span>
+      <span class="tab-name">Matrix</span>
+      <span class="tab-sub">3 per row, spillover</span>
+    </button>
+    <button class="tab-btn" onclick="setPlan('level')">
+      <span class="tab-icon">📊</span>
+      <span class="tab-name">Level</span>
+      <span class="tab-sub">Unlimited width</span>
+    </button>
+  </div>
+</section>
+
+<!-- MAIN VISUALIZER -->
+<section id="visualizer">
+  <div class="main">
+
+    <!-- LEFT PANEL: Controls -->
+    <div>
+      <div class="panel" style="margin-bottom:1.5rem">
+        <div class="panel-title">Plan settings</div>
+
+        <div id="plan-info" class="plan-info">
+          Each member recruits exactly 2 downlines — left leg and right leg. Commissions are triggered when both sides are balanced.
+        </div>
+
+        <div class="control-group">
+          <div class="control-label">
+            <span>Depth (levels)</span>
+            <strong id="lv-display">3</strong>
+          </div>
+          <input type="range" id="lv" min="1" max="6" value="3" step="1" oninput="update()">
+        </div>
+
+        <div class="control-group">
+          <div class="control-label">
+            <span>Product value</span>
+            <strong id="pv-display">₹2,000</strong>
+          </div>
+          <input type="range" id="pv" min="500" max="20000" value="2000" step="500" oninput="update()">
+        </div>
+
+        <div class="control-group">
+          <div class="control-label">
+            <span>Commission rate</span>
+            <strong id="cr-display">10%</strong>
+          </div>
+          <input type="range" id="cr" min="2" max="40" value="10" step="1" oninput="update()">
+        </div>
+      </div>
+
+      <!-- STATS -->
+      <div class="stats-grid">
+        <div class="stat-card highlight">
+          <div class="stat-label">Your earnings</div>
+          <div class="stat-value money" id="s-earn">₹1,400</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Total members</div>
+          <div class="stat-value" id="s-members">7</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Network volume</div>
+          <div class="stat-value" id="s-vol">₹14K</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Avg per member</div>
+          <div class="stat-value" id="s-avg">₹200</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Tree + Commission Table -->
+    <div>
+      <div class="tree-wrapper" id="visualizer">
+        <div class="tree-header">
+          <span class="tree-title" id="tree-label">Binary plan — 3 levels</span>
+          <span class="tree-meta" id="tree-meta">7 members · 2 per level</span>
+        </div>
+        <svg id="tree-svg" viewBox="0 0 760 360"></svg>
+        <div class="legend">
+          <div class="legend-item"><div class="legend-dot" style="background:#7C5CFC"></div>You (root)</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#4ECDC4"></div>Level 1</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#F5B731"></div>Level 2</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#FF6B6B"></div>Level 3+</div>
+        </div>
+      </div>
+
+      <!-- Commission breakdown table -->
+      <div class="panel" id="commission" style="margin-top:1.5rem">
+        <div class="panel-title">Commission breakdown per level</div>
+        <table class="commission-table">
+          <thead>
+            <tr>
+              <th>Level</th>
+              <th>Members</th>
+              <th>Volume (₹)</th>
+              <th>Commission (₹)</th>
+              <th style="min-width:100px">Share</th>
+            </tr>
+          </thead>
+          <tbody id="comm-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section">
+  <h2>Ready to build your MLM platform?</h2>
+  <p>F5 Systems builds custom Binary, Matrix, and Level plan software tailored to your business — with mobile apps, dashboards, and live reporting.</p>
+  <a href="https://f5sys.com/contact-us" target="_blank" class="cta-btn">Get a free consultation →</a>
+</section>
+
+<script>
+  let plan = 'binary';
+
+  const PLANS = {
+    binary: {
+      branches: 2,
+      label: 'Binary plan',
+      sub: '2 per level',
+      desc: 'Each member recruits exactly 2 downlines — left leg and right leg. Commissions are triggered when both sides are balanced.',
+      earnFactor: 0.7,
+      levelRates: [0.10, 0.08, 0.06, 0.05, 0.04, 0.03]
+    },
+    matrix: {
+      branches: 3,
+      label: 'Matrix plan',
+      sub: '3 per row, spillover',
+      desc: 'Each member has 3 direct positions. When full, new members overflow to the next available slot — creating automatic spillover.',
+      earnFactor: 0.55,
+      levelRates: [0.10, 0.07, 0.05, 0.04, 0.03, 0.02]
+    },
+    level: {
+      branches: 5,
+      label: 'Level plan',
+      sub: 'Unlimited width',
+      desc: 'Unlimited direct recruits per level. Earn commissions across multiple generations. Best for aggressive recruiters.',
+      earnFactor: 0.4,
+      levelRates: [0.15, 0.10, 0.08, 0.06, 0.04, 0.02]
+    }
+  };
+
+  const nodeColors = ['#7C5CFC','#4ECDC4','#F5B731','#FF6B6B','#A78BFA','#6EE7B7'];
+
+  function setPlan(p) {
+    plan = p;
+    document.querySelectorAll('.tab-btn').forEach((b,i) => {
+      b.classList.toggle('active', ['binary','matrix','level'][i] === p);
+    });
+    update();
+  }
+
+  function fmt(n) {
+    if (n >= 1e7) return '₹' + (n/1e7).toFixed(1) + 'Cr';
+    if (n >= 1e5) return '₹' + (n/1e5).toFixed(1) + 'L';
+    if (n >= 1e3) return '₹' + (n/1e3).toFixed(1) + 'K';
+    return '₹' + Math.round(n).toLocaleString('en-IN');
+  }
+
+  function update() {
+    const levels = parseInt(document.getElementById('lv').value);
+    const pv     = parseInt(document.getElementById('pv').value);
+    const cr     = parseInt(document.getElementById('cr').value);
+    const p = PLANS[plan];
+
+    document.getElementById('lv-display').textContent = levels;
+    document.getElementById('pv-display').textContent = '₹' + pv.toLocaleString('en-IN');
+    document.getElementById('cr-display').textContent = cr + '%';
+    document.getElementById('plan-info').textContent = p.desc;
+    document.getElementById('tree-label').textContent = p.label + ' — ' + levels + ' level' + (levels>1?'s':'');
+    document.getElementById('tree-meta').textContent = countNodes(p.branches, levels) + ' members · ' + p.sub;
+
+    // stats
+    const totalMembers = countNodes(p.branches, levels);
+    const totalVol = totalMembers * pv;
+    const earnings = Math.round(totalVol * (cr/100) * p.earnFactor);
+    const avg = Math.round(earnings / Math.max(1, totalMembers));
+
+    document.getElementById('s-members').textContent = totalMembers.toLocaleString('en-IN');
+    document.getElementById('s-earn').textContent = fmt(earnings);
+    document.getElementById('s-vol').textContent = fmt(totalVol);
+    document.getElementById('s-avg').textContent = fmt(avg);
+
+    // draw tree
+    drawTree(levels, p.branches);
+
+    // commission table
+    buildTable(levels, p.branches, pv, cr, p.levelRates, earnings);
+  }
+
+  function countNodes(b, l) {
+    let total = 0;
+    for (let i = 0; i <= l; i++) total += Math.pow(b, i);
+    return total;
+  }
+
+  function drawTree(levels, branches) {
+    const svg = document.getElementById('tree-svg');
+    const W = 760;
+    const rowH = Math.max(48, Math.min(70, 340 / (levels + 1)));
+    const H = rowH * (levels + 1) + 60;
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+
+    // build position map
+    const posMap = {};
+    const tree = [];
+
+    function buildPositions(id, level, parentX, siblingIndex, siblingCount) {
+      const slotW = W / Math.max(siblingCount, 1);
+      const x = parentX - (siblingCount - 1) * slotW / 2 + siblingIndex * slotW;
+      const y = 40 + level * rowH;
+      posMap[id] = { x, y, level };
+      tree.push({ id, level, parent: id > 0 ? Math.floor((id - 1) / branches) : null, x, y });
+
+      if (level < levels) {
+        const childStart = id * branches + 1;
+        for (let i = 0; i < branches; i++) {
+          buildPositions(childStart + i, level + 1, x, i, branches);
+        }
+      }
+    }
+
+    buildPositions(0, 0, W / 2, 0, 1);
+
+    let html = '';
+
+    // edges
+    tree.forEach(node => {
+      if (node.parent !== null && posMap[node.parent]) {
+        const p = posMap[node.parent];
+        html += `<line x1="${p.x.toFixed(1)}" y1="${p.y.toFixed(1)}" x2="${node.x.toFixed(1)}" y2="${node.y.toFixed(1)}" stroke="rgba(255,255,255,0.1)" stroke-width="1.5" fill="none"/>`;
+      }
+    });
+
+    // nodes
+    const maxLevel = levels;
+    tree.forEach(node => {
+      const r = node.level === 0 ? 20 : Math.max(9, 17 - node.level * 2);
+      const color = nodeColors[Math.min(node.level, nodeColors.length - 1)];
+      const opacity = 1 - (node.level / (maxLevel + 2)) * 0.4;
+
+      if (node.level === 0) {
+        html += `<circle cx="${node.x.toFixed(1)}" cy="${node.y.toFixed(1)}" r="26" fill="${color}" opacity="0.15"/>`;
+        html += `<circle class="pulse-circle" cx="${node.x.toFixed(1)}" cy="${node.y.toFixed(1)}" r="${r}" fill="${color}"/>`;
+        html += `<text x="${node.x.toFixed(1)}" y="${node.y.toFixed(1)}" text-anchor="middle" dominant-baseline="central" fill="white" font-size="8" font-weight="700" font-family="DM Sans, sans-serif" letter-spacing="0.5">YOU</text>`;
+      } else {
+        html += `<circle cx="${node.x.toFixed(1)}" cy="${node.y.toFixed(1)}" r="${r}" fill="${color}" opacity="${opacity.toFixed(2)}"/>`;
+        if (r >= 13) {
+          html += `<text x="${node.x.toFixed(1)}" y="${node.y.toFixed(1)}" text-anchor="middle" dominant-baseline="central" fill="white" font-size="8" font-family="DM Sans, sans-serif" opacity="0.85">L${node.level}</text>`;
+        }
+      }
+    });
+
+    svg.innerHTML = html;
+  }
+
+  function buildTable(levels, branches, pv, cr, levelRates, totalEarnings) {
+    const tbody = document.getElementById('comm-table-body');
+    let rows = '';
+    let grandTotal = 0;
+
+    for (let l = 1; l <= levels; l++) {
+      const count = Math.pow(branches, l);
+      const vol = count * pv;
+      const rate = (levelRates[l - 1] || 0.01) * (cr / 10);
+      const comm = Math.round(vol * rate);
+      grandTotal += comm;
+    }
+
+    for (let l = 1; l <= levels; l++) {
+      const count = Math.pow(branches, l);
+      const vol = count * pv;
+      const rate = (levelRates[l - 1] || 0.01) * (cr / 10);
+      const comm = Math.round(vol * rate);
+      const share = grandTotal > 0 ? (comm / grandTotal * 100) : 0;
+
+      rows += `<tr>
+        <td style="color:${nodeColors[Math.min(l, nodeColors.length-1)]};font-weight:600">Level ${l}</td>
+        <td>${count.toLocaleString('en-IN')}</td>
+        <td>${fmt(vol)}</td>
+        <td style="color:#4ECDC4;font-weight:500">${fmt(comm)}</td>
+        <td>
+          <div class="comm-bar-wrap">
+            <div class="comm-bar" style="width:${Math.min(share, 100).toFixed(1)}%"></div>
+          </div>
+          <span style="font-size:11px;color:var(--muted)">${share.toFixed(0)}%</span>
+        </td>
+      </tr>`;
+    }
+
+    tbody.innerHTML = rows;
+  }
+
+  update();
+</script>
+</body>
+</html>
